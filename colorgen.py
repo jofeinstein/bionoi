@@ -60,7 +60,6 @@ def colorgen(data,cmap):
     hexcolor_array = np.asarray(list(color_map.items()))
     color_map = {code: {"color": color} for code, color in hexcolor_array}
     colors = [color_map[_type]["color"] for _type in atoms['residue_type']]
-
     return colors
 
 
@@ -76,4 +75,7 @@ hydropathicty_vals = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,'CYS':2.5,'GLN'
        'GLY':-0.4,'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,'MET':1.9,'PHE':2.8,
        'PRO':-1.6,'SER':-0.8,'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
-print(colorgen(hydropathicty_vals, custom_colormap((255,0,0),(0,255,255))))
+colors = colorgen(hydropathicty_vals, custom_colormap((255,0,0),(0,255,255)))
+
+
+atoms['colors'] = colors

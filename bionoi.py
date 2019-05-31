@@ -11,6 +11,9 @@ from math import sqrt, asin, atan2, log, pi, tan
 
 from alignment import align
 
+hydropathicty_vals = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,'CYS':2.5,'GLN':-3.5,'GLU':-3.5,
+       'GLY':-0.4,'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,'MET':1.9,'PHE':2.8,
+       'PRO':-1.6,'SER':-0.8,'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
 def k_different_colors(k: int):
     colors = dict(**mcolors.CSS4_COLORS)
@@ -215,17 +218,8 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     # Check alpha
     alpha = float(alpha)
 
-    # Color by colorby
-    if colorby in ["atom_type", "residue_type", "hydropathicity_type"]:
-        colors = [color_map[_type]["color"] for _type in atoms[colorby]]
-    elif colorby == "residue_num":
-        color_map = k_different_colors(len(set(atoms["res_id"])))
-        color_map = {res_num: color for res_num, color in zip(set(atoms["res_id"]), color_map)}
-        colors = atoms["res_id"].apply(lambda x: color_map[x])
-    elif colorby == "hydropathicity_type":
-        colors = atoms["residue_type"].apply(lambda x: color_map[x])
-    else:
-        raise ValueError
+    # Colors color_map
+    colors = [color_map[_type]["color"] for _type in atoms[colorby]]
     atoms["color"] = colors
 
     for i, row in atoms.iterrows():
@@ -256,36 +250,74 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     return atoms, vor, img
 
 
-def Bionoi(mol, bs_out, size, dpi, alpha, colorby, proj_direction):
-    if colorby in ["atom_type", "residue_type", "hydropathicity_scale"]:
+def custom_colormap(color1,color2):
+    '''takes two RGB colors and creates a linear colormap'''
+
+    colorlist = (color1,color2)
+    colorarray = np.asarray(colorlist)/255
+    colorlist = np.array(colorarray).tolist()
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+
+    return cmap
+
+
+def RGB_to_hex(RGB):
+    '''(RGB) -> #FFFFFF'''
+    RGB = [int(x) for x in RGB]
+
+    return "#" + "".join(["0{0:x}".format(v).upper() if v < 16 else
+                          "{0:x}".format(v).upper() for v in RGB])
+
+
+def colorgen(data,cmap):
+    '''dictionary of data -> maps normalized values to colormap'''
+
+    #normalize data
+    valnorm_lst = []
+    rgbcolor_lst = []
+    for val in data.values():
+        val = float(val)
+        valnorm = ((val-min(data.values()))/(max(data.values())-min(data.values())))
+        valnorm_lst.append(valnorm)
+
+    #apply colormap
+    for val in valnorm_lst:
+        color = cmap(val)
+        color = color[0:3]
+        rgbcolor_lst.append(color)
+
+    rgb_array = np.asarray(rgbcolor_lst)*255
+    rgbcolor_lst = np.array(rgb_array).tolist()
+
+    #convert rgb to hex
+    hexcolor_lst = []
+    for color in rgbcolor_lst:
+        hex = RGB_to_hex(color)
+        hexcolor_lst.append(hex)
+
+    #create color dictionary
+    color_map = dict(zip(data.keys(), hexcolor_lst))
+    names = ['code', 'color']
+    dtype = dict(names=names)
+    hexcolor_array = np.asarray(list(color_map.items()))
+    color_map = {code: {"color": color} for code, color in hexcolor_array}
+    return color_map
+
+
+def Bionoi(mol, bs_out, size, colorby, dpi, alpha, proj_direction):
+    '''if colorby in ["atom_type", "residue_type", "hydropathicity_scale"]:
         if colorby == "atom_type":
             color_map = "./cmaps/atom_cmap.csv"
         elif colorby == "residue_type":
             color_map = "./cmaps/res_hydro_cmap.csv"
-        '''elif colorby == "hydropathicity_scale":
+        elif colorby == "hydropathicity_scale":
             color_map = ['#FF0000', '#EE1111', '#E31C1C', '#E31C1C', '#E31C1C', '#E31C1C', '#DB2424', '#AD5151', 
                          '#A35B5B', '#996666', '#966969', '#936C6C', '#8B7474', '#4CB3B3', '#49B6B6', '#38C7C7', 
                          '#30CFCF', '#12ECEC', '#08F7F7', '#00FFFF']'''
 
-        # Check for color mapping file, make dict
-        try:
-            with open(color_map, "rt") as color_mapF:
-                # Parse color map file
-                color_map = np.array(
-                    [line.replace("\n", "").split(";") for line in color_mapF.readlines() if not line.startswith("#")])
-                # To dict
-                color_map = {code: {"color": color, "definition": definition} for code, definition, color in color_map}
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                "Color mapping file not found. Be sure to specify YOURPATH/color_maps/ before the color_map basename.")
-        except ValueError:
-            raise ValueError(
-                "Error while parsing color_map file. Check the file's delimiters and \
-                compare to examples in color_maps folder")
-    else:
-        color_map = None
-
     # Run
+    redcyan_cmap = custom_colormap((255,0,0),(0,255,255))
+    color_map = colorgen(hydropathicty_vals,redcyan_cmap)
     atoms, vor, img = voronoi_atoms(mol, color_map, colorby,
                                     bs_out=bs_out,
                                     size=size, dpi=dpi,

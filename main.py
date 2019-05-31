@@ -31,10 +31,9 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type", "residue_num", "hydropathicity_scale"],
+                        choices=["atom_type", "residue_type", "residue_num"],
                         required=False,
-                        help='color the voronoi cells according to {atom_type, '
-                             'residue_type, residue_num, hydropathicity_scale}')
+                        help='color the voronoi cells according to {atom_type, residue_type, residue_num}')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],
