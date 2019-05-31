@@ -11,9 +11,6 @@ from math import sqrt, asin, atan2, log, pi, tan
 
 from alignment import align
 
-hydropathicty_vals = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,'CYS':2.5,'GLN':-3.5,'GLU':-3.5,
-       'GLY':-0.4,'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,'MET':1.9,'PHE':2.8,
-       'PRO':-1.6,'SER':-0.8,'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
 def k_different_colors(k: int):
     colors = dict(**mcolors.CSS4_COLORS)
@@ -178,9 +175,10 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     # Read molecules in mol2 format
     mol2 = PandasMol2().read_mol2(bs)
-    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z']]
-    atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z']
+    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']]
+    atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
     atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
+    atoms['charge'] = atoms['charge'].astype(str)
 
     # Align to principal Axis
     trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
@@ -268,18 +266,36 @@ def RGB_to_hex(RGB):
     return "#" + "".join(["0{0:x}".format(v).upper() if v < 16 else
                           "{0:x}".format(v).upper() for v in RGB])
 
-
-def colorgen(data,cmap):
-    '''dictionary of data -> maps normalized values to colormap'''
-
+'''def normalizer(data,colorby):
     #normalize data
     valnorm_lst = []
-    rgbcolor_lst = []
-    for val in data.values():
-        val = float(val)
-        valnorm = ((val-min(data.values()))/(max(data.values())-min(data.values())))
-        valnorm_lst.append(valnorm)
+    if colorby == "residue_type":
+        for val in data.values():
+            val = float(val)
+            valnorm = ((val-min(data.values()))/(max(data.values())-min(data.values())))
+            valnorm_lst.append(valnorm)
+    elif colorby == "charge":
+        for val in data.values():
+            val = float(val)
+            valnorm = ((val + 0.4807) / 1.02)
+            valnorm_lst.append(valnorm)
+    return valnorm_lst'''
 
+
+def colorgen(colorby,cmap,data):
+    '''dictionary of data -> maps normalized values to colormap'''
+    rgbcolor_lst = []
+    valnorm_lst = []
+    if colorby == "residue_type":
+        for val in data.values():
+            val = float(val)
+            valnorm = ((val - min(data.values())) / (max(data.values()) - min(data.values())))
+            valnorm_lst.append(valnorm)
+    elif colorby == "charge":
+        for val in data.values():
+            val = float(val)
+            valnorm = ((val + 0.4807) / 1.02)
+            valnorm_lst.append(valnorm)
     #apply colormap
     for val in valnorm_lst:
         color = cmap(val)
@@ -303,21 +319,37 @@ def colorgen(data,cmap):
     color_map = {code: {"color": color} for code, color in hexcolor_array}
     return color_map
 
+def extract_charge_data(mol):
+    # Read molecules in mol2 format
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['charge']]
+    atoms.columns = ['charge']
+    charge_list = atoms['charge'].tolist()
+    atoms['charge'] = atoms['charge'].astype(str)
+    charge_data = dict(zip(charge_list, charge_list))
+
+    return charge_data
+
+hydropathicty_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
+                      'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
+                      'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,
+                      'MET':1.9,'PHE':2.8,'PRO':-1.6,'SER':-0.8,
+                      'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
 def Bionoi(mol, bs_out, size, colorby, dpi, alpha, proj_direction):
-    '''if colorby in ["atom_type", "residue_type", "hydropathicity_scale"]:
+    if colorby in ["atom_type", "residue_type", "residue_num","charge"]:
         if colorby == "atom_type":
-            color_map = "./cmaps/atom_cmap.csv"
+            data = None
         elif colorby == "residue_type":
-            color_map = "./cmaps/res_hydro_cmap.csv"
-        elif colorby == "hydropathicity_scale":
-            color_map = ['#FF0000', '#EE1111', '#E31C1C', '#E31C1C', '#E31C1C', '#E31C1C', '#DB2424', '#AD5151', 
-                         '#A35B5B', '#996666', '#966969', '#936C6C', '#8B7474', '#4CB3B3', '#49B6B6', '#38C7C7', 
-                         '#30CFCF', '#12ECEC', '#08F7F7', '#00FFFF']'''
+            data = hydropathicty_data
+        elif colorby == "charge":
+            data = extract_charge_data(mol)
 
     # Run
     redcyan_cmap = custom_colormap((255,0,0),(0,255,255))
-    color_map = colorgen(hydropathicty_vals,redcyan_cmap)
+    orangebluecyan_cmap = custom_colormap((255,127,0),(0,127,255))
+    color_map = colorgen(colorby,orangebluecyan_cmap,data)
     atoms, vor, img = voronoi_atoms(mol, color_map, colorby,
                                     bs_out=bs_out,
                                     size=size, dpi=dpi,
