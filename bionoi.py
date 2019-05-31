@@ -216,16 +216,14 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     alpha = float(alpha)
 
     # Color by colorby
-    if colorby in ["atom_type", "residue_type"]:
+    if colorby in ["atom_type", "residue_type", "hydropathicity_type"]:
         colors = [color_map[_type]["color"] for _type in atoms[colorby]]
     elif colorby == "residue_num":
         color_map = k_different_colors(len(set(atoms["res_id"])))
         color_map = {res_num: color for res_num, color in zip(set(atoms["res_id"]), color_map)}
         colors = atoms["res_id"].apply(lambda x: color_map[x])
-    elif colorby == "hydropathicity_scale":
-        color_map = k_different_colors(len(set(atoms["res_id"])))
-        color_map = {res_num: color for res_num, color in zip(set(atoms["res_id"]), color_map)}
-        colors = atoms["res_id"].apply(lambda x: color_map[x])
+    elif colorby == "hydropathicity_type":
+        colors = atoms["residue_type"].apply(lambda x: color_map[x])
     else:
         raise ValueError
     atoms["color"] = colors
@@ -264,8 +262,10 @@ def Bionoi(mol, bs_out, size, dpi, alpha, colorby, proj_direction):
             color_map = "./cmaps/atom_cmap.csv"
         elif colorby == "residue_type":
             color_map = "./cmaps/res_hydro_cmap.csv"
-        elif colorby == "hydropathicity_scale":
-            color_map = "./cmaps/hydropathicity_scale_cmap.csv"
+        '''elif colorby == "hydropathicity_scale":
+            color_map = ['#FF0000', '#EE1111', '#E31C1C', '#E31C1C', '#E31C1C', '#E31C1C', '#DB2424', '#AD5151', 
+                         '#A35B5B', '#996666', '#966969', '#936C6C', '#8B7474', '#4CB3B3', '#49B6B6', '#38C7C7', 
+                         '#30CFCF', '#12ECEC', '#08F7F7', '#00FFFF']'''
 
         # Check for color mapping file, make dict
         try:
