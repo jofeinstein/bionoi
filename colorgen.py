@@ -1,56 +1,23 @@
-import matplotlib
+from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
+import pandas as pd
+import matplotlib
 
-#red_cyan example colormap
-red_cyan = ((255,0,0),(0,255,255))
-colorarray = np.asarray(red_cyan)
-colorarray = colorarray/255
-red_cyan = np.array(colorarray).tolist()
-a=np.outer(np.arange(0,1,0.001),np.ones(500))
-red_cyan_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('red_cyan_cmap', red_cyan, N=256)
+from biopandas.mol2 import PandasMol2
+import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
+from sklearn.cluster import KMeans
+from math import sqrt, asin, atan2, log, pi, tan
 
+from alignment import align
 
-'''plt.imshow(a,cmap=colormap)
-    plt.axis('off')
-    plt.show()
-    plt.savefig('{}.png'.format(color), bbox_inches="tight",transparent="True", pad_inches=0)
-    plt.close()'''
-
-#other usable colors
-'''#opposite colors
-red_cyan = ((255,0,0),(0,255,255))
-orange_bluecyan = ((255,127,0),(0,127,255))
-yellow_blue = ((255,255,0),(0,0,255))
-greenyellow_bluemagenta = ((127,255,0),(127,0,255))
-green_magenta = ((0,255,0),(255,0,255))
-greencyan_redmagenta = ((0,255,127),(255,0,127))
-
-#neighboring colors
-red_orange = ((255,0,0),(255,127,0))
-yellow_yellowgreen = ((255,255,0),(127,255,0))
-green_greencyan = ((0,255,0),(0,255,127))
-cyan_bluecyan = ((0,255,255),(0,127,255))
-blue_bluemagenta = ((0,0,255),(127,0,255))
-magenta_redmagenta = ((255,0,255),(255,0,127))
-
-colorlist = (red_cyan,orange_bluecyan,yellow_blue,
-             greenyellow_bluemagenta,green_magenta,greencyan_redmagenta,
-             red_orange,yellow_yellowgreen,green_greencyan,cyan_bluecyan,
-             blue_bluemagenta,magenta_redmagenta)
-
-'''
-codes = ['ALA','ARG','ASN','ASP','CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 
-         'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL']
-definitions = ['ALA','ARG','ASN','ASP','CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE',
-         'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL']
-
-
-
-
-dataset = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,'CYS':2.5,'GLN':-3.5,'GLU':-3.5,
-       'GLY':-0.4,'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,'MET':1.9,'PHE':2.8,
-       'PRO':-1.6,'SER':-0.8,'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
-
+def custom_colormap(color1,color2):
+    '''takes two RGB colors and creates a linear colormap'''
+    colorlist = (color1,color2)
+    colorarray = np.asarray(colorlist)/255
+    colorlist = np.array(colorarray).tolist()
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+    return cmap
 
 
 def RGB_to_hex(RGB):
@@ -58,6 +25,7 @@ def RGB_to_hex(RGB):
     RGB = [int(x) for x in RGB]
     return "#" + "".join(["0{0:x}".format(v).upper() if v < 16 else
                           "{0:x}".format(v).upper() for v in RGB])
+
 
 def colorgen(data,cmap):
     '''dictionary of data -> maps normalized values to colormap'''
@@ -86,8 +54,26 @@ def colorgen(data,cmap):
         hexcolor_lst.append(hex)
 
     #create color dictionary
-    colormap = dict(zip(data.keys(), hexcolor_lst))
-    colormap['color']
+    color_map = dict(zip(data.keys(), hexcolor_lst))
+    names = ['code', 'color']
+    dtype = dict(names=names)
+    hexcolor_array = np.asarray(list(color_map.items()))
+    color_map = {code: {"color": color} for code, color in hexcolor_array}
+    colors = [color_map[_type]["color"] for _type in atoms['residue_type']]
+
+    return colors
 
 
-colorgen(dataset, red_cyan_cmap)
+
+#example
+pd.options.mode.chained_assignment = None
+mol2 = PandasMol2().read_mol2('./mol/3nbfC02-1.mol2')
+atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z']]
+atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z']
+atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
+
+hydropathicty_vals = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,'CYS':2.5,'GLN':-3.5,'GLU':-3.5,
+       'GLY':-0.4,'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,'MET':1.9,'PHE':2.8,
+       'PRO':-1.6,'SER':-0.8,'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
+
+print(colorgen(hydropathicty_vals, custom_colormap((255,0,0),(0,255,255))))
