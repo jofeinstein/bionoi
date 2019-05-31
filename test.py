@@ -67,13 +67,14 @@ def colorgen(data,cmap):
     dtype = dict(names=names)
     hexcolor_array = np.asarray(list(color_map.items()))
     colormap = {code: {"color": color} for code, color in hexcolor_array}
+    #colors = [color_map["color"] for _type in atoms['residue_type']]
 
-    return colormap
+    #return colors
+
+#print(colorgen(dataset,red_cyan_cmap))
 
 
 
-'''colors = [color_map["color"] for _type in atoms['residue_type']]
-print(color_map)'''
 
 
 
@@ -86,4 +87,10 @@ print(color_map)'''
 #colors = [color_map["color"] for _type in atoms['residue_type']]
 #print(atoms['residue_type'])
 
-colorgen(dataset,red_cyan_cmap)
+#colorgen(dataset,red_cyan_cmap)
+
+
+color_mapF = open("./cmaps/atom_cmap.csv", "rt")
+color_map = np.array([line.replace("\n", "").split(";") for line in color_mapF.readlines() if not line.startswith("#")])
+color_map = {code: {"color": color, "definition": definition} for code, definition, color in color_map}
+colors = [color_map["color"] for _type in atoms['residue_type']]
