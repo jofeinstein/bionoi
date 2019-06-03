@@ -31,9 +31,10 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type", "residue_num","charge"],
+                        choices=["atom_type", "residue_type", "residue_num","charge","binding_probability","hydropathicity"],
                         required=False,
-                        help='color the voronoi cells according to {atom_type, residue_type, residue_num, charge}')
+                        help='color the voronoi cells according to {atom_type, residue_type, residue_num, charge,  \
+                              binding_probability, hydropathicity}')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],
@@ -65,15 +66,13 @@ def getArgs():
                         choices=[True, False],
                         required=False,
                         help='Whether or not the original image needs saving.')
-    '''parser.add_argument('-colorscale',
-                        type=list,
-                        default=red_cyan,
-                        choices=[red_cyan,orange_bluecyan,yellow_blue,greenyellow_bluemagenta,
-                        green_magenta,greencyan_redmagenta,red_orange,yellow_yellowgreen,
-                        green_greencyan,cyan_bluecyan,blue_bluemagenta,magenta_redmagenta],
+    '''parser.add_argument('-color_scale',
+                        default="red_cyan",
+                        choices=["red_cyan","orange_bluecyan","yellow_blue","greenyellow_bluemagenta",
+                        "green_magenta","greencyan_redmagenta","red_orange","yellow_yellowgreen",
+                        "green_greencyan","cyan_bluecyan","blue_bluemagenta","magenta_redmagenta"],
                         required=False,
-                        help='The color scale used in the colormap. Have the option to use opposite \
-                              or neighboring colors')'''
+                        help='The color scale used in the voronio diagram')'''
     return parser.parse_args()
 
 

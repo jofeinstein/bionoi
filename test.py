@@ -10,113 +10,45 @@ from sklearn.cluster import KMeans
 from math import sqrt, asin, atan2, log, pi, tan
 
 from alignment import align
-# Read molecules in mol2 format
-pd.options.mode.chained_assignment = None
-mol2 = PandasMol2().read_mol2("./mol/3nbfC02-1.mol2")
-atoms = mol2.df[['charge']]
-atoms.columns = ['charge']
-charge_list = atoms['charge'].tolist()
-atoms['charge'] = atoms['charge'].astype(str)
-charge_data = dict(zip(charge_list, charge_list))
 
+def custom_colormap(colorscale):
+    '''takes two hex colors and creates a linear colormap'''
+    if colorscale == "red_cyan":
+        colorlist = ("#ff0000","#00ffff")
+    elif colorscale == "orange_bluecyan":
+        colorlist = ("#ff7f00","#007fff")
+    elif colorscale == "yellow_blue":
+        colorlist = ("#ffff00","#0000ff")
+    elif colorscale == "greenyellow_bluemagenta":
+        colorlist = ("#7fff00","#7f00ff")
+    elif colorscale == "green_magenta":
+        colorlist = ("#00ff00","#ff00ff")
+    elif colorscale == "greencyan_redmagenta":
+        colorlist = ("#00ff7f","#ff007f")
+    elif colorscale == "red_orange":
+        colorlist = ("#ff0000","#ff7f00")
+    elif colorscale == "yellow_yellowgreen":
+        colorlist = ("#ffff00","#7fff00")
+    elif colorscale == "green_greencyan":
+        colorlist = ("#00ff00","#00ff7f")
+    elif colorscale == "cyan_bluecyan":
+        colorlist = ("#00ffff","#007fff")
+    elif colorscale == "blue_bluemagenta":
+        colorlist = ("#0000ff","#7f00ff")
+    elif colorscale == "magenta_redmagenta":
+        colorlist = ("#ff00ff","#ff007f")
 
-orange_bluecyan = ((255,127,0),(0,127,255))
-colorarray = np.asarray(orange_bluecyan)
-colorarray = colorarray/255
-orange_bluecyan = np.array(colorarray).tolist()
-orange_bluecyan_cmap = matplotlib.colors.LinearSegmentedColormap.from_list('orange_bluecyan_cmap', orange_bluecyan, N=256)
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
 
-def RGB_to_hex(RGB):
-    '''(RGB) -> #FFFFFF'''
-    RGB = [int(x) for x in RGB]
-    return "#" + "".join(["0{0:x}".format(v).upper() if v < 16 else
-                          "{0:x}".format(v).upper() for v in RGB])
+    return cmap
 
-def colorgen(data,cmap):
-    '''dictionary of data -> maps normalized values to colormap'''
+red_cyan = custom_colormap("blue_bluemagenta")
+x = (1,2,3,4,5)
+for val in x:
+    color = red_cyan(val)
+    color = matplotlib.colors.rgb2hex(color)
+    print(color)
 
-    #normalize data
-    valnorm_lst = list()
-    rgbcolor_lst = list()
-    for val in data.values():
-        val = float(val)
-        valnorm = ((val-min(data.values()))/(max(data.values())-min(data.values())))
-        valnorm_lst.append(valnorm)
-
-    #apply colormap
-    for val in valnorm_lst:
-        color = cmap(val)
-        color = color[0:3]
-        rgbcolor_lst.append(color)
-
-    rgb_array = np.asarray(rgbcolor_lst)*255
-    rgbcolor_lst = np.array(rgb_array).tolist()
-
-    #convert rgb to hex
-    hexcolor_lst = list()
-    for color in rgbcolor_lst:
-        hex = RGB_to_hex(color)
-        hexcolor_lst.append(hex)
-
-    #create color dictionary
-    color_map = dict(zip(data.keys(), hexcolor_lst))
-    names = ['code', 'color']
-    dtype = dict(names=names)
-    hexcolor_array = np.asarray(list(color_map.items()))
-    colormap = {code: {"color": color} for code, color in hexcolor_array}
-    colors = [colormap[_type]["color"] for _type in atoms['charge']]
-
-    return colors
-
-
-
-'''plt.imshow(a,cmap=colormap)
-    plt.axis('off')
-    plt.show()
-    plt.savefig('{}.png'.format(color), bbox_inches="tight",transparent="True", pad_inches=0)
-    plt.close()'''
-
-
-
-def normalizer(data,colorby):
-    #normalize data
-    valnorm_lst = []
-    if colorby == "residue_type":
-        for val in data.values():
-            val = float(val)
-            valnorm = ((val-min(data.values()))/(max(data.values())-min(data.values())))
-            valnorm_lst.append(valnorm)
-    elif colorby == "charge":
-        for val in data.values():
-            val = float(val)
-            valnorm = ((val + 0.4807) / 1.0)
-            print(valnorm)
-            valnorm_lst.append(valnorm)
-    return
-print(normalizer(charge_data,"charge"))
-
-def colorgen(valnorm_lst,cmap,data):
-    '''dictionary of data -> maps normalized values to colormap'''
-    rgbcolor_lst = []
-    #apply colormap
-    for val in valnorm_lst:
-        color = cmap(val)
-        color = color[0:3]
-        rgbcolor_lst.append(color)
-
-    rgb_array = np.asarray(rgbcolor_lst)*255
-    rgbcolor_lst = np.array(rgb_array).tolist()
-
-    #convert rgb to hex
-    hexcolor_lst = []
-    for color in rgbcolor_lst:
-        hex = RGB_to_hex(color)
-        hexcolor_lst.append(hex)
-
-    #create color dictionary
-    color_map = dict(zip(data.keys(), hexcolor_lst))
-    names = ['code', 'color']
-    dtype = dict(names=names)
-    hexcolor_array = np.asarray(list(color_map.items()))
-    color_map = {code: {"color": color} for code, color in hexcolor_array}
-    return color_map
+    , "yellow_blue", "greenyellow_bluemagenta",
+    "green_magenta", "greencyan_redmagenta", "red_orange", "yellow_yellowgreen",
+    "green_greencyan", "cyan_bluecyan", "blue_bluemagenta", "magenta_redmagenta"
