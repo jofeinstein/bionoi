@@ -1,5 +1,5 @@
 import argparse
-from bionoitest import Bionoi
+from bionoitest2 import Bionoi
 import os
 import skimage
 from skimage.io import imshow
@@ -31,10 +31,10 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type", "residue_num","charge","binding_probability","hydropathicity"],
+                        choices=["atom_type", "residue_type", "residue_num","charge","binding_prob","hydrophobicity"],
                         required=False,
                         help='color the voronoi cells according to {atom_type, residue_type, residue_num, charge,  \
-                              binding_probability, hydropathicity}')
+                              binding probability, hydrophobicity}')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],

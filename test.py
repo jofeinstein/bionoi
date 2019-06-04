@@ -11,14 +11,18 @@ from math import sqrt, asin, atan2, log, pi, tan
 
 from alignment import align
 
-pd.options.mode.chained_assignment = None
-mol2 = PandasMol2().read_mol2("./mol/3nbfC02-1.mol2")
-atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']]
-atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
-atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
-atoms['charge'] = atoms['charge'].astype(str)
+def colorby_con(colorby):
+    if colorby in ["hydrophobicity", "binding_prob"]:
+        colorby = colorby
+    else:
+        colorby = "residue_type"
+    return colorby
+
+
+
+
 def custom_colormap(color_scale):
-    '''takes two hex colors and creates a linear colormap'''
+    #takes two hex colors and creates a linear colormap
     if color_scale == "red_cyan":
         colorlist = ("#ff0000","#00ffff")
     elif color_scale == "orange_bluecyan":
@@ -47,7 +51,7 @@ def custom_colormap(color_scale):
     cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
 
     return cmap
-print(custom_colormap("yellow_yellowgreen"))
+
 
 def normalizer(dataset,colorby):
     #normalize data
@@ -66,7 +70,7 @@ def normalizer(dataset,colorby):
 
 
 def colorgen(colorby,valnorm_lst,cmap,dataset):
-    '''dictionary of data -> maps normalized values to colormap'''
+    #dictionary of data -> maps normalized values to colormap
     if colorby in ["atom_type", "residue_type"]:
         color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
 
@@ -106,7 +110,7 @@ def extract_charge_data(mol):
 
     return charge_data
 
-def colorby_converter(colorby):
+'''def colorby_converter(colorby):
     if colorby in ["hydropathicity", "binding_probability"]:
         if colorby == "hydropathicity":
             colorby = "residue_type"
@@ -114,7 +118,7 @@ def colorby_converter(colorby):
             colorby = "residue_type"
         elif colorby == "charge":
             colorby = "charge"
-        return colorby
+        return colorby'''
 
 
 binding_probability_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
@@ -122,13 +126,23 @@ binding_probability_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
                              'HIS':2.286,'ILE':1.006,'LEU':1.045,'LYS':0.468,
                              'MET':1.894,'PHE':1.952,'PRO':0.212,'SER':0.883,
                              'THR':0.730,'TRP':3.084,'TYR':1.672,'VAL':0.884}
-colorby = "binding_probability"
-charge_data = extract_charge_data("./mol/3nbfC02-1.mol2")
+
+
+colorby = "binding_prob"
+
+pd.options.mode.chained_assignment = None
+mol2 = PandasMol2().read_mol2("./mol/3nbfC02-1.mol2")
+atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']]
+atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
+atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
+if colorby == "hydrophobicity":
+    atoms.columns = ['res_id', 'hydrophobicity', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
+elif colorby == "binding_prob":
+    atoms.columns = ['res_id', 'binding_prob', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
+atoms['charge'] = atoms['charge'].astype(str)
+
 valnorm_lst = normalizer(binding_probability_data,colorby)
 cmap = custom_colormap("red_cyan")
-color_map = colorgen("binding_probability",valnorm_lst,cmap,binding_probability_data)
-print(color_map)
-print(atoms[colorby_converter("binding_probability")])
-colors = [color_map[_type]["color"] for _type in atoms[colorby_converter("binding_probability")]]
+color_map = colorgen("binding_prob",valnorm_lst,cmap,binding_probability_data)
+colors = [color_map[_type]["color"] for _type in atoms[colorby]]
 atoms["color"] = colors
-print(atoms)

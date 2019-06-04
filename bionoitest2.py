@@ -176,8 +176,16 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     # Read molecules in mol2 format
     mol2 = PandasMol2().read_mol2(bs)
     atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']]
-    atoms.columns = ['res_id', colorby_con(colorby), 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
-    atoms[colorby_con(colorby)] = atoms[colorby_con(colorby)].apply(lambda x: x[0:3])
+    if colorby == "hydrophobicity":
+        atoms.columns = ['res_id', 'hydrophobicity', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
+        atoms['hydrophobicity'] = atoms['hydrophobicity'].apply(lambda x: x[0:3])
+    elif colorby == "binding_prob":
+        atoms.columns = ['res_id', 'binding_prob', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
+        atoms['binding_prob'] = atoms['binding_prob'].apply(lambda x: x[0:3])
+    else:
+        atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
+        atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
+
     atoms['charge'] = atoms['charge'].astype(str)
 
     # Align to principal Axis
@@ -216,7 +224,7 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     # Check alpha
     alpha = float(alpha)
 
-    # Color by colorby
+    # Colors color_map
     colors = [color_map[_type]["color"] for _type in atoms[colorby]]
     atoms["color"] = colors
 
@@ -248,19 +256,6 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     return atoms, vor, img
 
 
-def extract_charge_data(mol):
-    # Read molecules in mol2 format
-    pd.options.mode.chained_assignment = None
-    mol2 = PandasMol2().read_mol2(mol)
-    atoms = mol2.df[['charge']]
-    atoms.columns = ['charge']
-    charge_list = atoms['charge'].tolist()
-    atoms['charge'] = atoms['charge'].astype(str)
-    charge_data = dict(zip(charge_list, charge_list))
-
-    return charge_data
-
-
 def custom_colormap(color_scale):
     '''takes two hex colors and creates a linear colormap'''
     if color_scale == "red_cyan":
@@ -275,31 +270,25 @@ def custom_colormap(color_scale):
         colorlist = ("#00ff00","#ff00ff")
     elif color_scale == "greencyan_redmagenta":
         colorlist = ("#00ff7f","#ff007f")
-    elif color_scale == "red_orange":
-        colorlist = ("#ff0000","#ff7f00")
-    elif color_scale == "yellow_yellowgreen":
-        colorlist = ("#ffff00","#7fff00")
-    elif color_scale == "green_greencyan":
-        colorlist = ("#00ff00","#00ff7f")
-    elif color_scale == "cyan_bluecyan":
-        colorlist = ("#00ffff","#007fff")
-    elif color_scale == "blue_bluemagenta":
-        colorlist = ("#0000ff","#7f00ff")
-    elif color_scale == "magenta_redmagenta":
-        colorlist = ("#ff00ff","#ff007f")
+
     cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
 
     return cmap
 
 
 def normalizer(dataset,colorby):
-    #normalize data
+    '''normalizes data depending on the data given'''
+
     valnorm_lst = []
-    if colorby in ["hydropathicity","binding_probability"]:
+
+    #relative normalization
+    if colorby in ["hydrophobicity","binding_prob"]:
         for val in dataset.values():
             val = float(val)
             valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
             valnorm_lst.append(valnorm)
+
+    #normalization based on given min/max values
     elif colorby == "charge":
         for val in dataset.values():
             val = float(val)
@@ -310,6 +299,7 @@ def normalizer(dataset,colorby):
 
 def colorgen(colorby,valnorm_lst,cmap,dataset):
     '''dictionary of data -> maps normalized values to colormap'''
+
     if colorby in ["atom_type", "residue_type"]:
         color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
 
@@ -339,41 +329,53 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
         return color_map
 
 
-'''def colorby_converter(colorby):
-    if colorby in ["hydropathicity", "binding_probability"]:
-        if colorby == "hydropathicity":
-            colorby = "residue_type"
-        elif colorby == "binding_probability":
-            colorby = "residue_type"
-        elif colorby == "charge":
-            colorby = "charge"
-        return colorby'''
+def extract_charge_data(mol):
+    '''extracts and formats charge data from mol2 file'''
 
-def colorby_con(colorby):
-    if colorby in ["hydrophobicity", "binding_prob"]:
-        colorby = colorby
-    else:
-        colorby = "residue_type"
-    return colorby
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['charge']]
+    atoms.columns = ['charge']
+    charge_list = atoms['charge'].tolist()
+    atoms['charge'] = atoms['charge'].astype(str)
+    charge_data = dict(zip(charge_list, charge_list))
 
+    return charge_data
 
+#datasets
 hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
                       'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
                       'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,
                       'MET':1.9,'PHE':2.8,'PRO':-1.6,'SER':-0.8,
                       'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
+binding_prob_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
+                             'CYS':1.650,'GLN':0.669,'GLU':0.956,'GLY':0.788,
+                             'HIS':2.286,'ILE':1.006,'LEU':1.045,'LYS':0.468,
+                             'MET':1.894,'PHE':1.952,'PRO':0.212,'SER':0.883,
+                             'THR':0.730,'TRP':3.084,'TYR':1.672,'VAL':0.884}
 
-def Bionoi(mol, bs_out, size, dpi, alpha, colorby, proj_direction):
-    if colorby == "charge":
-        dataset = extract_charge_data(mol)
-    elif colorby == "hydrophobicity":
-        dataset = hydrophobicity_data
+
+def Bionoi(mol, bs_out, size, colorby, dpi, alpha, proj_direction):
+    if colorby in ["atom_type", "residue_type", "residue_num","charge","binding_prob","hydrophobicity"]:
+        if colorby == "atom_type":
+            dataset = None
+        elif colorby == "residue_type":
+            dataset = None
+        elif colorby == "hydrophobicity":
+            dataset = hydrophobicity_data
+        elif colorby == "charge":
+            dataset = extract_charge_data(mol)
+        elif colorby == "binding_prob":
+            dataset = binding_prob_data
 
     # Run
+    cmap = custom_colormap("greenyellow_bluemagenta")
+
     valnorm_lst = normalizer(dataset,colorby)
-    cmap = custom_colormap("blue_bluemagenta")
+
     color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
+
     atoms, vor, img = voronoi_atoms(mol, color_map, colorby,
                                     bs_out=bs_out,
                                     size=size, dpi=dpi,
