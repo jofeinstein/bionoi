@@ -175,18 +175,18 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     # Read molecules in mol2 format
     mol2 = PandasMol2().read_mol2(bs)
-    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']]
+    atoms = mol2.df[['atom_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']]
     if colorby == "hydrophobicity":
-        atoms.columns = ['res_id', 'hydrophobicity', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
+        atoms.columns = ['atom_id', 'hydrophobicity', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
         atoms['hydrophobicity'] = atoms['hydrophobicity'].apply(lambda x: x[0:3])
     elif colorby == "binding_prob":
-        atoms.columns = ['res_id', 'binding_prob', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
+        atoms.columns = ['atom_id', 'binding_prob', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
         atoms['binding_prob'] = atoms['binding_prob'].apply(lambda x: x[0:3])
     else:
-        atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
+        atoms.columns = ['atom_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']
         atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
 
-    atoms['charge'] = atoms['charge'].astype(str)
+    atoms['atom_id'] = atoms['atom_id'].astype(str)
 
     # Align to principal Axis
     trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
@@ -225,7 +225,10 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     alpha = float(alpha)
 
     # Colors color_map
-    colors = [color_map[_type]["color"] for _type in atoms[colorby]]
+    if colorby in ["hydrophobicity", "binding_prob","atom_type","residue_type"]:
+        colors = [color_map[_type]["color"] for _type in atoms[colorby]]
+    else:
+        colors = [color_map[_type]["color"] for _type in atoms['atom_id']]
     atoms["color"] = colors
 
     for i, row in atoms.iterrows():
@@ -271,7 +274,10 @@ def custom_colormap(color_scale):
     elif color_scale == "greencyan_redmagenta":
         colorlist = ("#00ff7f","#ff007f")
 
-    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+    try:
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+    except:
+        cmap = None
 
     return cmap
 
@@ -282,7 +288,7 @@ def normalizer(dataset,colorby):
     valnorm_lst = []
 
     #relative normalization
-    if colorby in ["hydrophobicity","binding_prob"]:
+    if colorby in ["hydrophobicity","binding_prob","center_distance"]:
         for val in dataset.values():
             val = float(val)
             valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
@@ -334,13 +340,37 @@ def extract_charge_data(mol):
 
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
-    atoms = mol2.df[['charge']]
-    atoms.columns = ['charge']
+    atoms = mol2.df[['atom_id', 'charge']]
+    atoms.columns = ['atom_id', 'charge']
     charge_list = atoms['charge'].tolist()
+    atomid_list = atoms['atom_id'].tolist()
     atoms['charge'] = atoms['charge'].astype(str)
-    charge_data = dict(zip(charge_list, charge_list))
+    charge_data = dict(zip(atomid_list, charge_list))
 
     return charge_data
+
+def extract_centerdistance_data(mol,proj_direction):
+    '''extracts and formats center distance from mol2 file after alignment to principal axes'''
+
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['atom_id', 'x', 'y', 'z']]
+    atoms.columns = ['atom_id', 'x', 'y', 'z']
+    trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
+    atoms['x'] = trans_coords[:, 0]
+    atoms['y'] = trans_coords[:, 1]
+    atoms['z'] = trans_coords[:, 2]
+
+    atomid_list = atoms['atom_id'].tolist()
+    coordinate_list = atoms.values.tolist()
+
+    center_dist_list = []
+    for xyz in coordinate_list:
+        center_dist = ((xyz[1]) ** 2 + (xyz[2]) ** 2 + (xyz[3]) ** 2) ** .5
+        center_dist_list.append(center_dist)
+    center_dist_data = dict(zip(atomid_list, center_dist_list))
+
+    return center_dist_data
 
 #datasets
 hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
@@ -357,30 +387,34 @@ binding_prob_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
 
 
 def Bionoi(mol, bs_out, size, colorby, dpi, alpha, proj_direction):
-    if colorby in ["atom_type", "residue_type", "residue_num","charge","binding_prob","hydrophobicity"]:
+    if colorby in ["atom_type", "residue_type", "residue_num","charge","binding_prob","hydrophobicity","center_distance"]:
         if colorby == "atom_type":
             dataset = None
+            colorscale = None
         elif colorby == "residue_type":
             dataset = None
+            colorscale = None
         elif colorby == "hydrophobicity":
             dataset = hydrophobicity_data
+            colorscale = "red_cyan"
         elif colorby == "charge":
             dataset = extract_charge_data(mol)
+            colorscale = "orange_bluecyan"
         elif colorby == "binding_prob":
             dataset = binding_prob_data
+            colorscale = "greencyan_redmagenta"
+        elif colorby == "center_distance":
+            dataset = extract_centerdistance_data(mol,proj_direction)
+            colorscale = "yellow_blue"
 
     # Run
-    cmap = custom_colormap("greenyellow_bluemagenta")
+    cmap = custom_colormap(colorscale)
 
     valnorm_lst = normalizer(dataset,colorby)
 
     color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
 
-    atoms, vor, img = voronoi_atoms(mol, color_map, colorby,
-                                    bs_out=bs_out,
-                                    size=size, dpi=dpi,
-                                    alpha=alpha,
-                                    save_fig=False,
-                                    proj_direction=proj_direction)
+    atoms, vor, img = voronoi_atoms(mol, color_map, colorby, bs_out=bs_out, size=size, dpi=dpi, alpha=alpha,
+                                    save_fig=False, proj_direction=proj_direction)
 
     return atoms, vor, img

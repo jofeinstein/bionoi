@@ -31,10 +31,10 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type", "residue_num","charge","binding_prob","hydrophobicity"],
+                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_distance"],
                         required=False,
-                        help='color the voronoi cells according to {atom_type, residue_type, residue_num, charge,  \
-                              binding probability, hydrophobicity}')
+                        help='color the voronoi cells according to atom type, residue type , charge,  \
+                              binding probability, hydrophobicity, center distance')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],
@@ -66,13 +66,6 @@ def getArgs():
                         choices=[True, False],
                         required=False,
                         help='Whether or not the original image needs saving.')
-    '''parser.add_argument('-color_scale',
-                        default="red_cyan",
-                        choices=["red_cyan","orange_bluecyan","yellow_blue","greenyellow_bluemagenta",
-                        "green_magenta","greencyan_redmagenta","red_orange","yellow_yellowgreen",
-                        "green_greencyan","cyan_bluecyan","blue_bluemagenta","magenta_redmagenta"],
-                        required=False,
-                        help='The color scale used in the voronio diagram')'''
     return parser.parse_args()
 
 
