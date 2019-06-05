@@ -40,14 +40,12 @@ def voronoi_finite_polygons_2d(vor, radius=None):
     """
     Reconstruct infinite voronoi regions in a 2D diagram to finite
     regions.
-
     Parameters
     ----------
     vor : Voronoi
         Input diagram
     radius : float, optional
         Distance to 'points at infinity'.
-
     Returns
     -------
     regions : list of tuples
@@ -56,7 +54,6 @@ def voronoi_finite_polygons_2d(vor, radius=None):
         Coordinates for revised Voronoi vertices. Same as coordinates
         of input vertices, with 'points at infinity' appended to the
         end.
-
     Source
     -------
     Copied from https://gist.github.com/pv/8036995
@@ -126,7 +123,6 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 def fig_to_numpy(fig, alpha=1) -> np.ndarray:
     '''
     Converts matplotlib figure to a numpy array.
-
     Source
     ------
     Adapted from https://stackoverflow.com/questions/7821518/matplotlib-save-plot-to-numpy-array
@@ -175,10 +171,9 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     # Read molecules in mol2 format
     mol2 = PandasMol2().read_mol2(bs)
-    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']]
-    atoms.columns = ['res_id', colorby_con(colorby), 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
-    atoms[colorby_con(colorby)] = atoms[colorby_con(colorby)].apply(lambda x: x[0:3])
-    atoms['charge'] = atoms['charge'].astype(str)
+    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z']]
+    atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z']
+    atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
 
     # Align to principal Axis
     trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
@@ -217,7 +212,14 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     alpha = float(alpha)
 
     # Color by colorby
-    colors = [color_map[_type]["color"] for _type in atoms[colorby]]
+    if colorby in ["atom_type", "residue_type"]:
+        colors = [color_map[_type]["color"] for _type in atoms[colorby]]
+    elif colorby == "residue_num":
+        color_map = k_different_colors(len(set(atoms["res_id"])))
+        color_map = {res_num: color for res_num, color in zip(set(atoms["res_id"]), color_map)}
+        colors = atoms["res_id"].apply(lambda x: color_map[x])
+    else:
+        raise ValueError
     atoms["color"] = colors
 
     for i, row in atoms.iterrows():
@@ -248,132 +250,29 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     return atoms, vor, img
 
 
-def extract_charge_data(mol):
-    # Read molecules in mol2 format
-    pd.options.mode.chained_assignment = None
-    mol2 = PandasMol2().read_mol2(mol)
-    atoms = mol2.df[['charge']]
-    atoms.columns = ['charge']
-    charge_list = atoms['charge'].tolist()
-    atoms['charge'] = atoms['charge'].astype(str)
-    charge_data = dict(zip(charge_list, charge_list))
-
-    return charge_data
-
-
-def custom_colormap(color_scale):
-    '''takes two hex colors and creates a linear colormap'''
-    if color_scale == "red_cyan":
-        colorlist = ("#ff0000","#00ffff")
-    elif color_scale == "orange_bluecyan":
-        colorlist = ("#ff7f00","#007fff")
-    elif color_scale == "yellow_blue":
-        colorlist = ("#ffff00","#0000ff")
-    elif color_scale == "greenyellow_bluemagenta":
-        colorlist = ("#7fff00","#7f00ff")
-    elif color_scale == "green_magenta":
-        colorlist = ("#00ff00","#ff00ff")
-    elif color_scale == "greencyan_redmagenta":
-        colorlist = ("#00ff7f","#ff007f")
-    elif color_scale == "red_orange":
-        colorlist = ("#ff0000","#ff7f00")
-    elif color_scale == "yellow_yellowgreen":
-        colorlist = ("#ffff00","#7fff00")
-    elif color_scale == "green_greencyan":
-        colorlist = ("#00ff00","#00ff7f")
-    elif color_scale == "cyan_bluecyan":
-        colorlist = ("#00ffff","#007fff")
-    elif color_scale == "blue_bluemagenta":
-        colorlist = ("#0000ff","#7f00ff")
-    elif color_scale == "magenta_redmagenta":
-        colorlist = ("#ff00ff","#ff007f")
-    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
-
-    return cmap
-
-
-def normalizer(dataset,colorby):
-    #normalize data
-    valnorm_lst = []
-    if colorby in ["hydropathicity","binding_probability"]:
-        for val in dataset.values():
-            val = float(val)
-            valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
-            valnorm_lst.append(valnorm)
-    elif colorby == "charge":
-        for val in dataset.values():
-            val = float(val)
-            valnorm = ((val + 0.4807) / 1.02)
-            valnorm_lst.append(valnorm)
-    return valnorm_lst
-
-
-def colorgen(colorby,valnorm_lst,cmap,dataset):
-    '''dictionary of data -> maps normalized values to colormap'''
+def Bionoi(mol, bs_out, size, dpi, alpha, colorby, proj_direction):
     if colorby in ["atom_type", "residue_type"]:
         color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
 
         # Check for color mapping file, make dict
-        with open(color_map, "rt") as color_mapF:
-            # Parse color map file
-            color_map = np.array(
-                [line.replace("\n", "").split(";") for line in color_mapF.readlines() if not line.startswith("#")])
-            # To dict
-            color_map = {code: {"color": color, "definition": definition} for code, definition, color in color_map}
-            return color_map
+        try:
+            with open(color_map, "rt") as color_mapF:
+                # Parse color map file
+                color_map = np.array(
+                    [line.replace("\n", "").split(";") for line in color_mapF.readlines() if not line.startswith("#")])
+                # To dict
+                color_map = {code: {"color": color, "definition": definition} for code, definition, color in color_map}
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                "Color mapping file not found. Be sure to specify YOURPATH/color_maps/ before the color_map basename.")
+        except ValueError:
+            raise ValueError(
+                "Error while parsing color_map file. Check the file's delimiters and \
+                compare to examples in color_maps folder")
     else:
-        color_lst = []
-
-        #apply colormap
-        for val in valnorm_lst:
-            color = cmap(val)
-            color = matplotlib.colors.rgb2hex(color)
-            color_lst.append(color)
-
-        #create color dictionary
-        color_map = dict(zip(dataset.keys(), color_lst))
-        names = ['code', 'color']
-        dtype = dict(names=names)
-        hexcolor_array = np.asarray(list(color_map.items()))
-        color_map = {code: {"color": color} for code, color in hexcolor_array}
-        return color_map
-
-
-'''def colorby_converter(colorby):
-    if colorby in ["hydropathicity", "binding_probability"]:
-        if colorby == "hydropathicity":
-            colorby = "residue_type"
-        elif colorby == "binding_probability":
-            colorby = "residue_type"
-        elif colorby == "charge":
-            colorby = "charge"
-        return colorby'''
-
-def colorby_con(colorby):
-    if colorby in ["hydrophobicity", "binding_prob"]:
-        colorby = colorby
-    else:
-        colorby = "residue_type"
-    return colorby
-
-
-hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
-                      'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
-                      'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,
-                      'MET':1.9,'PHE':2.8,'PRO':-1.6,'SER':-0.8,
-                      'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
-
-
-def Bionoi(mol, bs_out, size, dpi, alpha, colorby, proj_direction):
-    if colorby == "charge":
-        dataset = extract_charge_data(mol)
-    elif colorby == "hydrophobicity":
-        dataset = hydrophobicity_data
+        color_map = None
 
     # Run
-    valnorm_lst = normalizer(dataset,colorby)
-    cmap = custom_colormap("blue_bluemagenta")
-    color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
     atoms, vor, img = voronoi_atoms(mol, color_map, colorby,
                                     bs_out=bs_out,
                                     size=size, dpi=dpi,
