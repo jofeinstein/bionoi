@@ -175,10 +175,11 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     # Read molecules in mol2 format
     mol2 = PandasMol2().read_mol2(bs)
-    atoms = mol2.df[['subst_id', 'subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']]
-    atoms.columns = ['res_id', 'residue_type', 'atom_type', 'atom_name', 'x', 'y', 'z','charge']
-    atoms['residue_type'] = atoms['residue_type'].apply(lambda x: x[0:3])
-    atoms['charge'] = atoms['charge'].astype(str)
+    atoms = mol2.df[['atom_id','subst_name', 'atom_type', 'atom_name', 'x', 'y', 'z', 'charge']]
+    atoms.columns = ['atom_id',colorby_conv(colorby), 'atom_type', 'atom_name', 'x', 'y', 'z', 'relative_charge']
+    atoms['atom_id'] = atoms['atom_id'].astype(str)
+    if colorby in ["hydrophobicity","binding_prob","residue_type"]:
+        atoms[colorby] = atoms[colorby].apply(lambda x: x[0:3])
 
     # Align to principal Axis
     trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
@@ -217,7 +218,10 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     alpha = float(alpha)
 
     # Colors color_map
-    colors = [color_map[_type]["color"] for _type in atoms[colorby]]
+    if colorby in ["charge","center_dist"]:
+        colors = [color_map[_type]["color"] for _type in atoms['atom_id']]
+    else:
+        colors = [color_map[_type]["color"] for _type in atoms[colorby]]
     atoms["color"] = colors
 
     for i, row in atoms.iterrows():
@@ -247,16 +251,12 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     return atoms, vor, img
 
-def colorby_converter(colorby):
-    if colorby in ["hydropathicity", "binding_probability"]:
-        if colorby == "hydropathicity":
-            colorby = "residue_type"
-        elif colorby == "binding_probability":
-            colorby = "residue_type"
-        else:
-            colorby = colorby
-        return colorby
-
+def colorby_conv(colorby):
+    if colorby in ["atom_type", "charge", "center_dist"]:
+        color_by = "residue_type"
+    else:
+        color_by = colorby
+    return color_by
 
 def custom_colormap(color_scale):
     '''takes two hex colors and creates a linear colormap'''
@@ -272,41 +272,32 @@ def custom_colormap(color_scale):
         colorlist = ("#00ff00","#ff00ff")
     elif color_scale == "greencyan_redmagenta":
         colorlist = ("#00ff7f","#ff007f")
-    elif color_scale == "red_orange":
-        colorlist = ("#ff0000","#ff7f00")
-    elif color_scale == "yellow_yellowgreen":
-        colorlist = ("#ffff00","#7fff00")
-    elif color_scale == "green_greencyan":
-        colorlist = ("#00ff00","#00ff7f")
-    elif color_scale == "cyan_bluecyan":
-        colorlist = ("#00ffff","#007fff")
-    elif color_scale == "blue_bluemagenta":
-        colorlist = ("#0000ff","#7f00ff")
-    elif color_scale == "magenta_redmagenta":
-        colorlist = ("#ff00ff","#ff007f")
 
-    cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+    try:
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+    except:
+        cmap = None
 
     return cmap
 
-def normalizer(dataset,colorby):
-    #normalize data
+
+def normalizer(dataset):
+    '''normalizes data depending on the data given'''
+
     valnorm_lst = []
-    if colorby in ["hydropathicity","binding_probability"]:
-        for val in dataset.values():
-            val = float(val)
-            valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
-            valnorm_lst.append(valnorm)
-    elif colorby == "charge":
-        for val in dataset.values():
-            val = float(val)
-            valnorm = ((val + 0.4807) / 1.02)
-            valnorm_lst.append(valnorm)
+
+    #relative normalization
+    for val in dataset.values():
+        val = float(val)
+        valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
+        valnorm_lst.append(valnorm)
+
     return valnorm_lst
 
 
 def colorgen(colorby,valnorm_lst,cmap,dataset):
     '''dictionary of data -> maps normalized values to colormap'''
+
     if colorby in ["atom_type", "residue_type"]:
         color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
 
@@ -335,55 +326,171 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
         color_map = {code: {"color": color} for code, color in hexcolor_array}
         return color_map
 
+
 def extract_charge_data(mol):
-    # Read molecules in mol2 format
+    '''extracts and formats charge data from mol2 file'''
+
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
-    atoms = mol2.df[['charge']]
-    atoms.columns = ['charge']
+    atoms = mol2.df[['atom_id','charge']]
+    atoms.columns = ['atom_id', 'charge']
     charge_list = atoms['charge'].tolist()
-    atoms['charge'] = atoms['charge'].astype(str)
-    charge_data = dict(zip(charge_list, charge_list))
+    atomid_list = atoms['atom_id'].tolist()
+    charge_data = dict(zip(atomid_list, charge_list))
 
     return charge_data
 
-hydropathicty_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
+
+def extract_centerdistance_data(mol,proj_direction):
+    '''extracts and formats center distance from mol2 file after alignment to principal axes'''
+
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['atom_id', 'x', 'y', 'z']]
+    atoms.columns = ['atom_id', 'x', 'y', 'z']
+    trans_coords = alignment(atoms, proj_direction)  # get the transformation coordinate
+    atoms['x'] = trans_coords[:, 0]
+    atoms['y'] = trans_coords[:, 1]
+    atoms['z'] = trans_coords[:, 2]
+
+    atomid_list = atoms['atom_id'].tolist()
+    coordinate_list = atoms.values.tolist()
+
+    center_dist_list = []
+    for xyz in coordinate_list:
+        center_dist = ((xyz[0]) ** 2 + (xyz[1]) ** 2 + (xyz[2]) ** 2) ** .5
+        center_dist_list.append(center_dist)
+    center_dist_data = dict(zip(atomid_list, center_dist_list))
+
+    return center_dist_data
+
+
+def extract_sasa_data(mol,pop):
+
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['subst_name']]
+    atoms.columns = ['residue_type']
+    siteresidue_list = atoms['residue_type'].tolist()
+
+    residue_list = []
+    qsasa_list = []
+    with open(pop) as popsa:
+        for line in popsa:
+            line_list = line.split()
+            if len(line_list) == 12:
+                residue_type = line_list[2]+line_list[4]
+                qsasa = line_list[7]
+                residue_list.append(residue_type)
+                qsasa_list.append(qsasa)
+        residue_list = residue_list[1:]
+        qsasa_list = qsasa_list[1:]
+
+    fullprotein_data = dict(zip(residue_list,qsasa_list))
+    qsasa_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
+
+    return qsasa_data
+
+
+def amino_single_to_triple(single):
+    single_to_triple_dict = {'A': 'ALA', 'R': 'ARG', 'N': 'ASN', 'D': 'ASP', 'C': 'CYS',
+                             'G': 'GLY', 'Q': 'GLN', 'E': 'GLU', 'H': 'HIS', 'I': 'ILE',
+                             'L': 'LEU', 'K': 'LYS', 'M': 'MET', 'F': 'PHE', 'P': 'PRO',
+                             'S': 'SER', 'T': 'THR', 'W': 'TRP', 'Y': 'TYR', 'V': 'VAL'}
+
+    for i in single_to_triple_dict.keys():
+        if i == single:
+            triple = single_to_triple_dict[i]
+
+    return triple
+
+
+def extract_seq_entropy_data(profile, mol):
+    pd.options.mode.chained_assignment = None
+    mol2 = PandasMol2().read_mol2(mol)
+    atoms = mol2.df[['subst_name']]
+    atoms.columns = ['residue_type']
+    siteresidue_list = atoms['residue_type'].tolist()
+
+    with open(profile) as profile:
+        with np.errstate(divide='ignore'):
+            ressingle_list = []
+            probdata_list = []
+            for line in profile:
+                line_list = line.split()
+                residue_type = line_list[0]
+                prob_data = line_list[1:]
+                prob_data = list(map(float, prob_data))
+                ressingle_list.append(residue_type)
+                probdata_list.append(prob_data)
+
+            ressingle_list = ressingle_list[1:-1]
+            probdata_list = probdata_list[1:-1]
+
+            count = 0
+            restriple_list = []
+            for res in ressingle_list:
+                newres = res.replace(res, amino_single_to_triple(res))
+                count += 1
+                restriple_list.append(newres + str(count))
+
+            prob_array = np.asarray(probdata_list)
+            prob_array = np.log2(prob_array)
+            prob_array[~np.isfinite(prob_array)] = 0
+            prob_array = np.sum(a=prob_array, axis=1) * -1
+            entropydata_list = prob_array.tolist()
+
+            fullprotein_data = dict(zip(restriple_list, entropydata_list))
+            seq_entropy_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
+
+    return seq_entropy_data
+
+
+#datasets
+hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
                       'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
                       'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,
                       'MET':1.9,'PHE':2.8,'PRO':-1.6,'SER':-0.8,
                       'THR':-0.7,'TRP':-0.9,'TYR':-1.3,'VAL':4.2}
 
-binding_probability_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
+binding_prob_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
                              'CYS':1.650,'GLN':0.669,'GLU':0.956,'GLY':0.788,
                              'HIS':2.286,'ILE':1.006,'LEU':1.045,'LYS':0.468,
                              'MET':1.894,'PHE':1.952,'PRO':0.212,'SER':0.883,
                              'THR':0.730,'TRP':3.084,'TYR':1.672,'VAL':0.884}
 
-def Bionoi(mol, bs_out, size, colorby, dpi, alpha, proj_direction):
-    if colorby in ["atom_type", "residue_type", "residue_num","charge","binding_probability","hydropathicity"]:
-        if colorby == "atom_type":
-            dataset = None
-        elif colorby == "residue_type":
-            dataset = None
-        elif colorby == "hydropathicity":
-            dataset = hydropathicty_data
-        elif colorby == "charge":
-            dataset = extract_charge_data(mol)
-        elif colorby == "binding_probability":
-            dataset = binding_probability_data
+
+def Bionoi(mol, pop, profile, bs_out, size, colorby, dpi, alpha, proj_direction):
+    if colorby in ["atom_type","residue_type"]:
+        dataset = None
+        colorscale = None
+    elif colorby == "hydrophobicity":
+        dataset = hydrophobicity_data
+        colorscale = "red_cyan"
+    elif colorby == "charge":
+        dataset = extract_charge_data(mol)
+        colorscale = "orange_bluecyan"
+    elif colorby == "binding_prob":
+        dataset = binding_prob_data
+        colorscale = "greencyan_redmagenta"
+    elif colorby == "center_dist":
+        dataset = extract_centerdistance_data(mol,proj_direction)
+        colorscale = "yellow_blue"
+    elif colorby == "sasa":
+        dataset = extract_sasa_data(mol,pop)
+        colorscale = "greenyellow_bluemagenta"
+    elif colorby == "seq_entropy":
+        dataset = extract_seq_entropy_data(profile,mol)
+        colorscale = "green_magenta"
 
     # Run
-    cmap = custom_colormap("magenta_redmagenta")
+    cmap = custom_colormap(colorscale)
 
-    valnorm_lst = normalizer(dataset,colorby)
+    valnorm_lst = normalizer(dataset)
 
     color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
 
-    atoms, vor, img = voronoi_atoms(mol, color_map, colorby_converter(colorby),
-                                    bs_out=bs_out,
-                                    size=size, dpi=dpi,
-                                    alpha=alpha,
-                                    save_fig=False,
-                                    proj_direction=proj_direction)
+    atoms, vor, img = voronoi_atoms(mol, color_map, colorby, bs_out=bs_out, size=size, dpi=dpi, alpha=alpha,
+                                    save_fig=False, proj_direction=proj_direction)
 
     return atoms, vor, img

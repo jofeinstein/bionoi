@@ -1,5 +1,5 @@
 import argparse
-from bionoitest2 import Bionoi
+from bionoi import Bionoi
 import os
 import skimage
 from skimage.io import imshow
@@ -15,9 +15,13 @@ def getArgs():
                         required=False,
                         help='the protein/ligand mol2 file')
     parser.add_argument('-pop',
-                        default="./popsa/5upxA.pdb",
+                        default="./popsa/5upxA.out",
                         required=False,
                         help='the protein file with qsasa values, used POPSlegacy')
+    parser.add_argument('-profile',
+                        default="./profile/5upxA.profile",
+                        required=False,
+                        help='.profile file with sequence entropy data')
     parser.add_argument('-out',
                         default="./output/",
                         required=False,
@@ -35,7 +39,7 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa"],
+                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa","seq_entropy"],
                         required=False,
                         help='color the voronoi cells according to atom type, residue type , charge,  \
                               binding probability, hydrophobicity, center distance, solvent accessible surface area')
@@ -170,6 +174,7 @@ if __name__ == "__main__":
 
     mol = args.mol
     pop = args.pop
+    profile = args.profile
     out_folder = args.out
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
@@ -193,6 +198,7 @@ if __name__ == "__main__":
     for i, proj_name in enumerate(proj_names):
         atoms, vor, img = Bionoi(mol=mol,
                                  pop=pop,
+                                 profile=profile,
                                  bs_out=out_folder + proj_name,
                                  size=size,
                                  dpi=dpi,
