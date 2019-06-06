@@ -11,9 +11,13 @@ import numpy as np
 def getArgs():
     parser = argparse.ArgumentParser('python')
     parser.add_argument('-mol',
-                        default="./examples/4v94E.mol2",
+                        default="./mol/5upxA00.mol2",
                         required=False,
                         help='the protein/ligand mol2 file')
+    parser.add_argument('-pop',
+                        default="./popsa/5upxA.pdb",
+                        required=False,
+                        help='the protein file with qsasa values, used POPSlegacy')
     parser.add_argument('-out',
                         default="./output/",
                         required=False,
@@ -31,10 +35,10 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_distance"],
+                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa"],
                         required=False,
                         help='color the voronoi cells according to atom type, residue type , charge,  \
-                              binding probability, hydrophobicity, center distance')
+                              binding probability, hydrophobicity, center distance, solvent accessible surface area')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],
@@ -165,6 +169,7 @@ if __name__ == "__main__":
     args = getArgs()
 
     mol = args.mol
+    pop = args.pop
     out_folder = args.out
     if not os.path.exists(out_folder):
         os.makedirs(out_folder)
@@ -187,6 +192,7 @@ if __name__ == "__main__":
     # Project
     for i, proj_name in enumerate(proj_names):
         atoms, vor, img = Bionoi(mol=mol,
+                                 pop=pop,
                                  bs_out=out_folder + proj_name,
                                  size=size,
                                  dpi=dpi,

@@ -140,8 +140,8 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
         return color_map
 
 
-colorby = "center_distance"
-dataset = extract_centerdistance_data("./mol/3nbfC02-1.mol2",proj_direction=1)
+colorby = "charge"
+dataset = extract_charge_data("./mol/3nbfC02-1.mol2")
 valnorm_lst = normalizer(dataset,colorby)
 cmap = custom_colormap("red_cyan")
 color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
