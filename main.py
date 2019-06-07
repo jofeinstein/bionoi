@@ -15,11 +15,11 @@ def getArgs():
                         required=False,
                         help='the protein/ligand mol2 file')
     parser.add_argument('-pop',
-                        default="./popsa/5upxA.out",
+                        default=None,
                         required=False,
                         help='the protein file with qsasa values, used POPSlegacy')
     parser.add_argument('-profile',
-                        default="./profile/5upxA.profile",
+                        default=None,
                         required=False,
                         help='.profile file with sequence entropy data')
     parser.add_argument('-out',
@@ -116,10 +116,11 @@ def flip(rotate_img_list, flip):
     return flip_img_list
 
 
-def gen_output_filenames(direction, rotation_angle, flip):
+def gen_output_filenames(direction, rotation_angle, flip, colorby):
     proj_names = []
     rot_names = []
     flip_names = []
+    colorby_names = []
 
     if direction != 0:
         name = ''
@@ -165,7 +166,10 @@ def gen_output_filenames(direction, rotation_angle, flip):
     else:
         flip_names = ['_OO', '_ud', '_lr']
 
-    return proj_names, rot_names, flip_names
+    colorby_names.append(colorby)
+
+
+    return proj_names, rot_names, flip_names, colorby_names
 
 
 if __name__ == "__main__":
@@ -190,7 +194,7 @@ if __name__ == "__main__":
     flip_type = args.flip
 
     # 
-    proj_names, rot_names, flip_names = gen_output_filenames(proj_direction, rotation_angle, flip_type)
+    proj_names, rot_names, flip_names, colorby_names = gen_output_filenames(proj_direction, rotation_angle, flip_type, colorby)
     len_list = len(proj_names)
     proj_img_list = []
 
@@ -227,8 +231,9 @@ if __name__ == "__main__":
     for pname in proj_names:
         for rname in rot_names:
             for fname in flip_names:
-                saveFile = os.path.join(out_folder, pname + rname + fname + imgtype)
-                filenames.append(saveFile)
+                for cname in colorby_names:
+                    saveFile = os.path.join(out_folder, pname + rname + fname + '-' + cname + imgtype)
+                    filenames.append(saveFile)
 
     assert len(filenames) == len(flip_img_list)
     

@@ -154,6 +154,7 @@ def miller(x, y, z):
 def alignment(pocket, proj_direction):
     """Principal Axes Alignment
     Returns transformation coordinates(matrix: X*3)"""
+
     pocket_coords = np.array([pocket.x, pocket.y, pocket.z]).T
     pocket_center = np.mean(pocket_coords, axis=0)  # calculate mean of each column
     pocket_coords = pocket_coords - pocket_center  # Centralization
@@ -251,30 +252,27 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
 
     return atoms, vor, img
 
+
 def colorby_conv(colorby):
+    '''change the colorby parameter to match the dictionary data keys and the column of the atoms dataframe'''
+
     if colorby in ["atom_type", "charge", "center_dist"]:
         color_by = "residue_type"
     else:
         color_by = colorby
     return color_by
 
+
 def custom_colormap(color_scale):
     '''takes two hex colors and creates a linear colormap'''
-    if color_scale == "red_cyan":
-        colorlist = ("#ff0000","#00ffff")
-    elif color_scale == "orange_bluecyan":
-        colorlist = ("#ff7f00","#007fff")
-    elif color_scale == "yellow_blue":
-        colorlist = ("#ffff00","#0000ff")
-    elif color_scale == "greenyellow_bluemagenta":
-        colorlist = ("#7fff00","#7f00ff")
-    elif color_scale == "green_magenta":
-        colorlist = ("#00ff00","#ff00ff")
-    elif color_scale == "greencyan_redmagenta":
-        colorlist = ("#00ff7f","#ff007f")
+
+    color_dict = {"red_cyan" : ("#ff0000","#00ffff"), "orange_bluecyan" : ("#ff7f00","#007fff"),
+                  "yellow_blue" : ("#ffff00","#0000ff"), "greenyellow_bluemagenta" : ("#7fff00","#7f00ff"),
+                  "green_magenta" : ("#00ff00","#ff00ff"), "greencyan_redmagenta" : ("#00ff7f","#ff007f")}
 
     try:
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', colorlist, N=256)
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('cmap1', color_dict[color_scale], N=256)
+
     except:
         cmap = None
 
@@ -282,11 +280,9 @@ def custom_colormap(color_scale):
 
 
 def normalizer(dataset):
-    '''normalizes data depending on the data given'''
+    '''normalizes dataset using min and max values'''
 
     valnorm_lst = []
-
-    #relative normalization
     for val in dataset.values():
         val = float(val)
         valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
@@ -296,8 +292,9 @@ def normalizer(dataset):
 
 
 def colorgen(colorby,valnorm_lst,cmap,dataset):
-    '''dictionary of data -> maps normalized values to colormap'''
+    '''creates a new dictionary that contains the color of the given key'''
 
+    #atom type and residue type colors are predetermined
     if colorby in ["atom_type", "residue_type"]:
         color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
 
@@ -306,19 +303,19 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
             # Parse color map file
             color_map = np.array(
                 [line.replace("\n", "").split(";") for line in color_mapF.readlines() if not line.startswith("#")])
-            # To dict
+            # Create color dictionary
             color_map = {code: {"color": color, "definition": definition} for code, definition, color in color_map}
             return color_map
     else:
         color_lst = []
 
-        #apply colormap
+        # Apply colormap to the normalized data
         for val in valnorm_lst:
             color = cmap(val)
             color = matplotlib.colors.rgb2hex(color)
             color_lst.append(color)
 
-        #create color dictionary
+        # Create color dictionary
         color_map = dict(zip(dataset.keys(), color_lst))
         names = ['code', 'color']
         dtype = dict(names=names)
@@ -330,10 +327,13 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
 def extract_charge_data(mol):
     '''extracts and formats charge data from mol2 file'''
 
+    # Extracting data from mol2
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
     atoms = mol2.df[['atom_id','charge']]
     atoms.columns = ['atom_id', 'charge']
+
+    # Create dictionary
     charge_list = atoms['charge'].tolist()
     atomid_list = atoms['atom_id'].tolist()
     charge_data = dict(zip(atomid_list, charge_list))
@@ -344,6 +344,7 @@ def extract_charge_data(mol):
 def extract_centerdistance_data(mol,proj_direction):
     '''extracts and formats center distance from mol2 file after alignment to principal axes'''
 
+    # Extracting data from mol2 and aligning to principal axes
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
     atoms = mol2.df[['atom_id', 'x', 'y', 'z']]
@@ -356,6 +357,7 @@ def extract_centerdistance_data(mol,proj_direction):
     atomid_list = atoms['atom_id'].tolist()
     coordinate_list = atoms.values.tolist()
 
+    # Calculating the distance to the center of the pocket and creating dictionary
     center_dist_list = []
     for xyz in coordinate_list:
         center_dist = ((xyz[0]) ** 2 + (xyz[1]) ** 2 + (xyz[2]) ** 2) ** .5
@@ -366,13 +368,20 @@ def extract_centerdistance_data(mol,proj_direction):
 
 
 def extract_sasa_data(mol,pop):
+    '''extracts accessible surface area data from .out file generated by POPSlegacy.
 
+        then matches the data in the .out file to the binding site in the mol2 file.
+
+        Used POPSlegacy https://github.com/Fraternalilab/POPSlegacy '''
+
+    # Extracting data from mol2 file
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
     atoms = mol2.df[['subst_name']]
     atoms.columns = ['residue_type']
     siteresidue_list = atoms['residue_type'].tolist()
 
+    # Extracting sasa data from .out file
     residue_list = []
     qsasa_list = []
     with open(pop) as popsa:
@@ -386,6 +395,7 @@ def extract_sasa_data(mol,pop):
         residue_list = residue_list[1:]
         qsasa_list = qsasa_list[1:]
 
+    # Matching amino acids from mol2 and out files and creating dictionary
     fullprotein_data = dict(zip(residue_list,qsasa_list))
     qsasa_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
 
@@ -393,6 +403,8 @@ def extract_sasa_data(mol,pop):
 
 
 def amino_single_to_triple(single):
+    '''converts the single letter amino acid abbreviation to the triple letter abbreviation'''
+
     single_to_triple_dict = {'A': 'ALA', 'R': 'ARG', 'N': 'ASN', 'D': 'ASP', 'C': 'CYS',
                              'G': 'GLY', 'Q': 'GLN', 'E': 'GLU', 'H': 'HIS', 'I': 'ILE',
                              'L': 'LEU', 'K': 'LYS', 'M': 'MET', 'F': 'PHE', 'P': 'PRO',
@@ -406,12 +418,16 @@ def amino_single_to_triple(single):
 
 
 def extract_seq_entropy_data(profile, mol):
+    '''extracts sequence entropy data from .profile'''
+
+    # Extracting data from mol2
     pd.options.mode.chained_assignment = None
     mol2 = PandasMol2().read_mol2(mol)
     atoms = mol2.df[['subst_name']]
     atoms.columns = ['residue_type']
     siteresidue_list = atoms['residue_type'].tolist()
 
+    # Opening and formatting lists of the probabilities and residues
     with open(profile) as profile:
         with np.errstate(divide='ignore'):
             ressingle_list = []
@@ -427,6 +443,7 @@ def extract_seq_entropy_data(profile, mol):
             ressingle_list = ressingle_list[1:-1]
             probdata_list = probdata_list[1:-1]
 
+            # Changing single letter amino acid to triple letter with its corresponding number
             count = 0
             restriple_list = []
             for res in ressingle_list:
@@ -434,19 +451,21 @@ def extract_seq_entropy_data(profile, mol):
                 count += 1
                 restriple_list.append(newres + str(count))
 
+            # Calculating information entropy
             prob_array = np.asarray(probdata_list)
             prob_array = np.log2(prob_array)
             prob_array[~np.isfinite(prob_array)] = 0
             prob_array = np.sum(a=prob_array, axis=1) * -1
             entropydata_list = prob_array.tolist()
 
+            # Matching amino acids from mol2 and profile files and creating dictionary
             fullprotein_data = dict(zip(restriple_list, entropydata_list))
             seq_entropy_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
 
     return seq_entropy_data
 
 
-#datasets
+# Hard coded datasets
 hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
                       'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
                       'HIS':-3.2,'ILE':4.5,'LEU':3.8,'LYS':-3.9,
@@ -461,6 +480,7 @@ binding_prob_data = {'ALA':0.701,'ARG':0.916,'ASN':0.811,'ASP':1.015,
 
 
 def Bionoi(mol, pop, profile, bs_out, size, colorby, dpi, alpha, proj_direction):
+
     if colorby in ["atom_type","residue_type"]:
         dataset = None
         colorscale = None
@@ -482,6 +502,7 @@ def Bionoi(mol, pop, profile, bs_out, size, colorby, dpi, alpha, proj_direction)
     elif colorby == "seq_entropy":
         dataset = extract_seq_entropy_data(profile,mol)
         colorscale = "green_magenta"
+
 
     # Run
     cmap = custom_colormap(colorscale)
