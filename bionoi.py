@@ -279,14 +279,15 @@ def custom_colormap(color_scale):
     return cmap
 
 
-def normalizer(dataset):
+def normalizer(dataset,colorby):
     '''normalizes dataset using min and max values'''
 
     valnorm_lst = []
-    for val in dataset.values():
-        val = float(val)
-        valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
-        valnorm_lst.append(valnorm)
+    if colorby not in ["atom_type", "residue_type"]:
+        for val in dataset.values():
+            val = float(val)
+            valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
+            valnorm_lst.append(valnorm)
 
     return valnorm_lst
 
@@ -429,38 +430,39 @@ def extract_seq_entropy_data(profile, mol):
 
     # Opening and formatting lists of the probabilities and residues
     with open(profile) as profile:
-        with np.errstate(divide='ignore'):
-            ressingle_list = []
-            probdata_list = []
-            for line in profile:
-                line_list = line.split()
-                residue_type = line_list[0]
-                prob_data = line_list[1:]
-                prob_data = list(map(float, prob_data))
-                ressingle_list.append(residue_type)
-                probdata_list.append(prob_data)
+        ressingle_list = []
+        probdata_list = []
+        for line in profile:
+            line_list = line.split()
+            residue_type = line_list[0]
+            prob_data = line_list[1:]
+            prob_data = list(map(float, prob_data))
+            ressingle_list.append(residue_type)
+            probdata_list.append(prob_data)
 
-            ressingle_list = ressingle_list[1:-1]
-            probdata_list = probdata_list[1:-1]
+    ressingle_list = ressingle_list[1:]
+    probdata_list = probdata_list[1:]
 
-            # Changing single letter amino acid to triple letter with its corresponding number
-            count = 0
-            restriple_list = []
-            for res in ressingle_list:
-                newres = res.replace(res, amino_single_to_triple(res))
-                count += 1
-                restriple_list.append(newres + str(count))
+    # Changing single letter amino acid to triple letter with its corresponding number
+    count = 0
+    restriple_list = []
+    for res in ressingle_list:
+        newres = res.replace(res, amino_single_to_triple(res))
+        count += 1
+        restriple_list.append(newres + str(count))
 
-            # Calculating information entropy
-            prob_array = np.asarray(probdata_list)
-            prob_array = np.log2(prob_array)
-            prob_array[~np.isfinite(prob_array)] = 0
-            prob_array = np.sum(a=prob_array, axis=1) * -1
-            entropydata_list = prob_array.tolist()
+    # Calculating information entropy
+    with np.errstate(divide='ignore'):
+        prob_array = np.asarray(probdata_list)
+        log_array = np.log2(prob_array)
+        log_array[~np.isfinite(log_array)] = 0
+        entropy_array = log_array * prob_array
+        entropydata_array = np.sum(a=entropy_array, axis=1) * -1
+        entropydata_list = entropydata_array.tolist()
 
-            # Matching amino acids from mol2 and profile files and creating dictionary
-            fullprotein_data = dict(zip(restriple_list, entropydata_list))
-            seq_entropy_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
+    # Matching amino acids from mol2 and profile files and creating dictionary
+    fullprotein_data = dict(zip(restriple_list, entropydata_list))
+    seq_entropy_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
 
     return seq_entropy_data
 
@@ -507,7 +509,7 @@ def Bionoi(mol, pop, profile, bs_out, size, colorby, dpi, alpha, proj_direction)
     # Run
     cmap = custom_colormap(colorscale)
 
-    valnorm_lst = normalizer(dataset)
+    valnorm_lst = normalizer(dataset,colorby)
 
     color_map = colorgen(colorby,valnorm_lst,cmap,dataset)
 

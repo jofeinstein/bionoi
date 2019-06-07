@@ -3,6 +3,7 @@ from bionoi import Bionoi
 import os
 import skimage
 from skimage.io import imshow
+import cv2
 
 from skimage.transform import rotate as skrotate
 import numpy as np
@@ -34,15 +35,16 @@ def getArgs():
                         required=False,
                         help='image size in pixels, eg: 128')
     parser.add_argument('-alpha',
-                        default=1.0,
+                        default=0.8,
                         required=False,
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa","seq_entropy"],
+                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa","seq_entropy","properties"],
                         required=False,
                         help='color the voronoi cells according to atom type, residue type , charge,  \
-                              binding probability, hydrophobicity, center distance, solvent accessible surface area')
+                              binding probability, hydrophobicity, center distance, solvent accessible   \
+                              surface area, and sequence entropy')
     parser.add_argument('-imageType',
                         default=".jpg",
                         choices=[".jpg", ".png"],
@@ -116,11 +118,32 @@ def flip(rotate_img_list, flip):
     return flip_img_list
 
 
-def gen_output_filenames(direction, rotation_angle, flip, colorby):
+def blend_properties(img_list):
+
+    blend_list = []
+    for pocket_list in img_list:
+        im1 = pocket_list[0]
+        im2 = pocket_list[1]
+        im3 = pocket_list[2]
+        im4 = pocket_list[3]
+        im5 = pocket_list[4]
+        im6 = pocket_list[5]
+
+        blend1 = cv2.addWeighted(im1, .5, im2, .5, 0)
+        blend2 = cv2.addWeighted(im3, .5, im4, .5, 0)
+        blend3 = cv2.addWeighted(im5, .5, im6, .5, 0)
+
+        multiblend1 = cv2.addWeighted(blend1, .5, blend2, .5, 0)
+        finalblend = cv2.addWeighted(multiblend1, 2 / 3, blend3, 1 / 3, 0)
+        blend_list.append(finalblend)
+
+    return blend_list
+
+
+def gen_output_filenames(direction, rotation_angle, flip):
     proj_names = []
     rot_names = []
     flip_names = []
-    colorby_names = []
 
     if direction != 0:
         name = ''
@@ -166,10 +189,7 @@ def gen_output_filenames(direction, rotation_angle, flip, colorby):
     else:
         flip_names = ['_OO', '_ud', '_lr']
 
-    colorby_names.append(colorby)
-
-
-    return proj_names, rot_names, flip_names, colorby_names
+    return proj_names, rot_names, flip_names
 
 
 if __name__ == "__main__":
@@ -189,27 +209,53 @@ if __name__ == "__main__":
     alpha = args.alpha
     imgtype = args.imageType
     colorby = args.colorby
+    colorby = args.colorby
     proj_direction = args.direction
     rotation_angle = args.rot_angle
     flip_type = args.flip
 
     # 
-    proj_names, rot_names, flip_names, colorby_names = gen_output_filenames(proj_direction, rotation_angle, flip_type, colorby)
+    proj_names, rot_names, flip_names = gen_output_filenames(proj_direction, rotation_angle, flip_type)
     len_list = len(proj_names)
     proj_img_list = []
+    proj_img_list_all = []
+    colorby_list = ("charge", "binding_prob", "hydrophobicity", "center_dist", "sasa", "seq_entropy")
 
     # Project
     for i, proj_name in enumerate(proj_names):
-        atoms, vor, img = Bionoi(mol=mol,
-                                 pop=pop,
-                                 profile=profile,
-                                 bs_out=out_folder + proj_name,
-                                 size=size,
-                                 dpi=dpi,
-                                 alpha=alpha,
-                                 colorby=colorby,
-                                 proj_direction=i + 1 if proj_direction==0 else proj_direction)
-        proj_img_list.append(img)
+        if colorby == "properties":
+            for property in colorby_list:
+                atoms, vor, img = Bionoi(mol=mol,
+                                         pop=pop,
+                                         profile=profile,
+                                         bs_out=out_folder + proj_name,
+                                         size=size,
+                                         dpi=dpi,
+                                         alpha=alpha,
+                                         colorby=property,
+                                         proj_direction=i + 1 if proj_direction==0 else proj_direction)
+                proj_img_list_all.append(img)
+
+        else:
+            atoms, vor, img = Bionoi(mol=mol,
+                                     pop=pop,
+                                     profile=profile,
+                                     bs_out=out_folder + proj_name,
+                                     size=size,
+                                     dpi=dpi,
+                                     alpha=alpha,
+                                     colorby=colorby,
+                                     proj_direction=i + 1 if proj_direction == 0 else proj_direction)
+            proj_img_list.append(img)
+
+    if colorby == "properties":
+        # Grouping images by pocket
+        order_list = [(proj_img_list_all[i], proj_img_list_all[i + 1], proj_img_list_all[i + 2],
+                       proj_img_list_all[i + 3], proj_img_list_all[i + 4], proj_img_list_all[i + 5]) for i in
+                      range(0, len(proj_img_list_all), 6)]
+
+        # Blend each pocket with all 6 properties
+        proj_img_list = blend_properties(order_list)
 
     # Rotate
     rotate_img_list = rotate(proj_img_list, rotation_angle)
@@ -217,6 +263,7 @@ if __name__ == "__main__":
     # Flip
     flip_img_list = flip(rotate_img_list, flip_type)
 
+    #if colorby != "properties":
     assert len(proj_img_list) == len(proj_names)
     assert len(rotate_img_list) == len(rot_names)*len(proj_names)
     assert len(flip_img_list) == len(flip_names)*len(rot_names)*len(proj_names)
@@ -227,16 +274,22 @@ if __name__ == "__main__":
         if os.path.isfile(file):
             os.remove(file)
 
-    # Make file names 
-    for pname in proj_names:
-        for rname in rot_names:
-            for fname in flip_names:
-                for cname in colorby_names:
-                    saveFile = os.path.join(out_folder, pname + rname + fname + '-' + cname + imgtype)
+    # Make file names
+    if colorby != "properties":
+        for pname in proj_names:
+            for rname in rot_names:
+                for fname in flip_names:
+                    saveFile = os.path.join(out_folder, pname + rname + fname + imgtype)
+                    filenames.append(saveFile)
+    else:
+        for pname in proj_names:
+            for rname in rot_names:
+                for fname in flip_names:
+                    saveFile = os.path.join(out_folder, "blended_" + pname + rname + fname + imgtype)
                     filenames.append(saveFile)
 
     assert len(filenames) == len(flip_img_list)
-    
+
     for i in range(len(filenames)):
         imshow(flip_img_list[i])
         skimage.io.imsave(filenames[i], flip_img_list[i])
