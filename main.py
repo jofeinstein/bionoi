@@ -119,7 +119,7 @@ def flip(rotate_img_list, flip):
 
 
 def blend_properties(img_list):
-
+    '''blends six images with equal weights'''
     blend_list = []
     for pocket_list in img_list:
         im1 = pocket_list[0]
@@ -291,5 +291,5 @@ if __name__ == "__main__":
     assert len(filenames) == len(flip_img_list)
 
     for i in range(len(filenames)):
-        imshow(flip_img_list[i])
+        #imshow(flip_img_list[i])
         skimage.io.imsave(filenames[i], flip_img_list[i])

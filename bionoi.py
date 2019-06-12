@@ -286,7 +286,10 @@ def normalizer(dataset,colorby):
     if colorby not in ["atom_type", "residue_type"]:
         for val in dataset.values():
             val = float(val)
-            valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
+            if min(dataset.values()) == max(dataset.values()):
+                valnorm = 0.0
+            else:
+                valnorm = ((val-min(dataset.values()))/(max(dataset.values())-min(dataset.values())))
             valnorm_lst.append(valnorm)
 
     return valnorm_lst
