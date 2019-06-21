@@ -28,7 +28,7 @@ bionoi constructs the [voronoi diagram](https://en.wikipedia.org/wiki/Voronoi_di
 * main.py: main function that uses bionoi.py to convert a specified mol2 file into Voronoi Diagram. See run options in help.
 ```
 usage:
-python main.py -mol ./mol/4v94E.mol2 -out ./imgs/ -dpi 120 -alpha 0.5 -size 256 -direction 0 -rot_angle 0 -flip 0
+python main.py -mol ./testfiles/mol2/5iunE00.mol2 -pop ./testfiles/popsa/5iunE.out -profile ./testfiles/profile/5iunE.profile -out ./imgs/ -dpi 120 -alpha 0.5 -size 256 -direction 0 -rot_angle 0 -flip 0
 ```
 
 * extract_mols.sh: a script that extracts .mol2 files that have the same direction from the origin .mol2 file folder.

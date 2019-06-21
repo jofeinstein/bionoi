@@ -12,15 +12,15 @@ import numpy as np
 def getArgs():
     parser = argparse.ArgumentParser('python')
     parser.add_argument('-mol',
-                        default="./mol/5upxA00.mol2",
+                        default="./testfiles/mol2/5iunE00.mol2",
                         required=False,
                         help='the protein/ligand mol2 file')
     parser.add_argument('-pop',
-                        default=None,
+                        default="./testfiles/popsa/5iunE.out",
                         required=False,
                         help='the protein file with qsasa values, used POPSlegacy')
     parser.add_argument('-profile',
-                        default=None,
+                        default="./testfiles/profile/5iunE.profile",
                         required=False,
                         help='.profile file with sequence entropy data')
     parser.add_argument('-out',
@@ -40,7 +40,8 @@ def getArgs():
                         help='alpha for color of cells')
     parser.add_argument('-colorby',
                         default="residue_type",
-                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity","center_dist","sasa","seq_entropy","properties"],
+                        choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity",
+                                 "center_dist","sasa","seq_entropy","properties"],
                         required=False,
                         help='color the voronoi cells according to atom type, residue type , charge,  \
                               binding probability, hydrophobicity, center distance, solvent accessible   \
@@ -80,32 +81,36 @@ def getArgs():
 
 
 def rotate(proj_img_list, rotation_angle):
+    '''rotates voronoi diagram according to the specified -rot_angle'''
+
     rotate_img_list = []
     for img in proj_img_list:
-        if rotation_angle == 0:
+        if rotation_angle == 0:     # do four 90 degree rotations if rot_angle = 0
 
             rotate_img_list.append(img)
             rotate_img_list.append(skrotate(img, angle=90))
             rotate_img_list.append(skrotate(img, angle=180))
             rotate_img_list.append(skrotate(img, angle=270))
         elif rotation_angle == 1:
-            rotate_img_list.append(skrotate(img, angle=0))
+            rotate_img_list.append(skrotate(img, angle=0))  # no rotation
         elif rotation_angle == 2:
-            rotate_img_list.append(skrotate(img, angle=90))
+            rotate_img_list.append(skrotate(img, angle=90)) # 90 degree rotation
         elif rotation_angle == 3:
-            rotate_img_list.append(skrotate(img, angle=180))
+            rotate_img_list.append(skrotate(img, angle=180))    # 180 degree rotation
         elif rotation_angle == 4:
-            rotate_img_list.append(skrotate(img, angle=270))
+            rotate_img_list.append(skrotate(img, angle=270))    # 270 degree rotation
     return rotate_img_list
 
 
 def flip(rotate_img_list, flip):
+    '''flips voronoi diagram according to specified -flip'''
+
     flip_img_list = []
     for img in rotate_img_list:
         if flip == 0:
-            flip_img_list.append(img)
-            flip_img_list.append(np.flipud(img))
-            flip_img_list.append(np.fliplr(img))
+            flip_img_list.append(img)               # no flip
+            flip_img_list.append(np.flipud(img))    # flip over x axis
+            flip_img_list.append(np.fliplr(img))    # flip over y axes
         if flip == 1:
             flip_img_list.append(img)
         if flip == 2:
@@ -119,20 +124,23 @@ def flip(rotate_img_list, flip):
 
 
 def blend_properties(img_list):
-    '''blends six images with equal weights'''
+    '''blends six voronoi diagrams made to show different properties'''
+
     blend_list = []
-    for pocket_list in img_list:
-        im1 = pocket_list[0]
+    for pocket_list in img_list:    # extracting a pocket list from the main list
+        im1 = pocket_list[0]        # extracting images from pocket list
         im2 = pocket_list[1]
         im3 = pocket_list[2]
         im4 = pocket_list[3]
         im5 = pocket_list[4]
         im6 = pocket_list[5]
 
+        # Blending two images at a time with equal weights
         blend1 = cv2.addWeighted(im1, .5, im2, .5, 0)
         blend2 = cv2.addWeighted(im3, .5, im4, .5, 0)
         blend3 = cv2.addWeighted(im5, .5, im6, .5, 0)
 
+        # Continue blending images, keeping weights equal
         multiblend1 = cv2.addWeighted(blend1, .5, blend2, .5, 0)
         finalblend = cv2.addWeighted(multiblend1, 2 / 3, blend3, 1 / 3, 0)
         blend_list.append(finalblend)
@@ -141,6 +149,8 @@ def blend_properties(img_list):
 
 
 def gen_output_filenames(direction, rotation_angle, flip):
+    '''generate output names based on the direction, rot_angle, and flip'''
+
     proj_names = []
     rot_names = []
     flip_names = []
@@ -200,7 +210,7 @@ if __name__ == "__main__":
     pop = args.pop
     profile = args.profile
     out_folder = args.out
-    if not os.path.exists(out_folder):
+    if not os.path.exists(out_folder):  # create output folder if it does not exist
         os.makedirs(out_folder)
 
     # Alias args
@@ -209,12 +219,11 @@ if __name__ == "__main__":
     alpha = args.alpha
     imgtype = args.imageType
     colorby = args.colorby
-    colorby = args.colorby
     proj_direction = args.direction
     rotation_angle = args.rot_angle
     flip_type = args.flip
 
-    # 
+    #
     proj_names, rot_names, flip_names = gen_output_filenames(proj_direction, rotation_angle, flip_type)
     len_list = len(proj_names)
     proj_img_list = []
@@ -224,7 +233,7 @@ if __name__ == "__main__":
     # Project
     for i, proj_name in enumerate(proj_names):
         if colorby == "properties":
-            for property in colorby_list:
+            for property in colorby_list:       # creates diagrams for all six properties instead of one
                 atoms, vor, img = Bionoi(mol=mol,
                                          pop=pop,
                                          profile=profile,
@@ -249,7 +258,7 @@ if __name__ == "__main__":
             proj_img_list.append(img)
 
     if colorby == "properties":
-        # Grouping images by pocket
+        # Grouping images by pocket. 6 images to a pocket, each displaying a different property
         order_list = [(proj_img_list_all[i], proj_img_list_all[i + 1], proj_img_list_all[i + 2],
                        proj_img_list_all[i + 3], proj_img_list_all[i + 4], proj_img_list_all[i + 5]) for i in
                       range(0, len(proj_img_list_all), 6)]
@@ -263,12 +272,11 @@ if __name__ == "__main__":
     # Flip
     flip_img_list = flip(rotate_img_list, flip_type)
 
-    #if colorby != "properties":
     assert len(proj_img_list) == len(proj_names)
     assert len(rotate_img_list) == len(rot_names)*len(proj_names)
     assert len(flip_img_list) == len(flip_names)*len(rot_names)*len(proj_names)
 
-    # Setup output folder 
+    # Setup output folder
     filenames = []
     for file in list(os.listdir(out_folder)):
         if os.path.isfile(file):
@@ -290,6 +298,7 @@ if __name__ == "__main__":
 
     assert len(filenames) == len(flip_img_list)
 
+    # Save images
     for i in range(len(filenames)):
         #imshow(flip_img_list[i])
         skimage.io.imsave(filenames[i], flip_img_list[i])
