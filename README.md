@@ -17,7 +17,7 @@ bionoi constructs the [voronoi diagram](https://en.wikipedia.org/wiki/Voronoi_di
 
 1. copy/download the code from GitHub
 2. If input is a 3D coordinate of protein/ligand, it will be projected to 2D plane
-3. Run main.py with a .mol2 file (see Examples)
+3. Run main.py with a test files (see example)
 
 ## File description
 
