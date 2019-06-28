@@ -471,7 +471,6 @@ def extract_seq_entropy_data(profile, mol):
 
     return seq_entropy_data
 
-
 # Hard coded datasets
 hydrophobicity_data = {'ALA':1.8,'ARG':-4.5,'ASN':-3.5,'ASP':-3.5,
                       'CYS':2.5,'GLN':-3.5,'GLU':-3.5,'GLY':-0.4,
