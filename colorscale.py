@@ -1,4 +1,3 @@
-from scipy.spatial import Voronoi, voronoi_plot_2d
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
