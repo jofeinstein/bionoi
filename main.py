@@ -41,7 +41,7 @@ def getArgs():
     parser.add_argument('-colorby',
                         default="residue_type",
                         choices=["atom_type", "residue_type","charge","binding_prob","hydrophobicity",
-                                 "center_dist","sasa","seq_entropy","properties"],
+                                 "center_dist","sasa","seq_entropy","blended"],
                         required=False,
                         help='color the voronoi cells according to atom type, residue type , charge,  \
                               binding probability, hydrophobicity, center distance, solvent accessible   \
@@ -232,7 +232,7 @@ if __name__ == "__main__":
 
     # Project
     for i, proj_name in enumerate(proj_names):
-        if colorby == "properties":
+        if colorby == "blended":
             for property in colorby_list:       # creates diagrams for all six properties instead of one
                 atoms, vor, img = Bionoi(mol=mol,
                                          pop=pop,
@@ -257,7 +257,7 @@ if __name__ == "__main__":
                                      proj_direction=i + 1 if proj_direction == 0 else proj_direction)
             proj_img_list.append(img)
 
-    if colorby == "properties":
+    if colorby == "blended":
         # Grouping images by pocket. 6 images to a pocket, each displaying a different property
         order_list = [(proj_img_list_all[i], proj_img_list_all[i + 1], proj_img_list_all[i + 2],
                        proj_img_list_all[i + 3], proj_img_list_all[i + 4], proj_img_list_all[i + 5]) for i in
@@ -283,7 +283,7 @@ if __name__ == "__main__":
             os.remove(file)
 
     # Make file names
-    if colorby != "properties":
+    if colorby != "blended":
         for pname in proj_names:
             for rname in rot_names:
                 for fname in flip_names:
