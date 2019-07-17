@@ -219,7 +219,7 @@ def voronoi_atoms(bs, color_map, colorby, bs_out=None, size=None, dpi=None, alph
     alpha = float(alpha)
 
     # Colors color_map
-    if colorby in ["charge","center_dist"]:
+    if colorby in ["charge","center_dist","sasa"]:
         colors = [color_map[_type]["color"] for _type in atoms['atom_id']]
     else:
         colors = [color_map[_type]["color"] for _type in atoms[colorby]]
@@ -300,7 +300,7 @@ def colorgen(colorby,valnorm_lst,cmap,dataset):
 
     # atom type and residue type colors are predetermined
     if colorby in ["atom_type", "residue_type"]:
-        color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_hydro_cmap.csv"
+        color_map = "./cmaps/atom_cmap.csv" if colorby == "atom_type" else "./cmaps/res_cmap.csv"
 
         # Check for color mapping file, make dict
         with open(color_map, "rt") as color_mapF:
@@ -390,20 +390,22 @@ def extract_sasa_data(mol,pop):
     # Extracting sasa data from .out file
     residue_list = []
     qsasa_list = []
-    with open(pop) as popsa:    # opening .out file
+    with open(pop) as popsa:  # opening .out file
         for line in popsa:
             line_list = line.split()
-            if len(line_list) == 12:       # extracting relevant information
-                residue_type = line_list[2]+line_list[4]
-                qsasa = line_list[7]
-                residue_list.append(residue_type)
-                qsasa_list.append(qsasa)
-        residue_list = residue_list[1:]
-        qsasa_list = qsasa_list[1:]
+            if len(line_list) == 12:  # extracting relevant information
+                residue_type = line_list[2] + line_list[4]
+                if residue_type in siteresidue_list:
+                    qsasa = line_list[7]
+                    residue_list.append(residue_type)
+                    qsasa_list.append(qsasa)
 
     # Matching amino acids from .mol2 and .out files and creating dictionary
-    fullprotein_data = dict(zip(residue_list,qsasa_list))
-    qsasa_data = {k: float(fullprotein_data[k]) for k in siteresidue_list if k in fullprotein_data}
+    qsasa_data = {}
+    fullprotein_data = list(zip(residue_list, qsasa_list))
+    for i in range(len(fullprotein_data)):
+        if fullprotein_data[i][0] in siteresidue_list:
+            qsasa_data[i + 1] = float(fullprotein_data[i][1])
 
     return qsasa_data
 
